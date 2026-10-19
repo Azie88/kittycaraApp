@@ -1,19 +1,19 @@
 import React, { useState,useRef,useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import * as Font from 'expo-font';
-import { publicRequest } from '../RequestMethods';
+import { updateProfile } from '../backend';
+import { continueOnboarding } from '../onboarding';
 
 const OldSelection = ({ navigation,route }) => {
-  const { userId1 } = route.params;
-  console.warn('ok',userId1);
-  
+  const { userId } = route.params;
+
   const [isLoading, setIsLoading] = useState(false);
   const [age, setAge] = useState('');
   const [isAgeValid, setIsAgeValid] = useState(false);
 
   const handleAgeChange = (value) => {
     const numericValue = parseInt(value, 10);
-    if (!isNaN(numericValue) && numericValue > 0) {
+    if (/^\d+$/.test(value) && Number.isSafeInteger(Number(value)) && numericValue > 0 && numericValue <= 120) {
       setAge(value);
       setIsAgeValid(true);
     } else {
@@ -24,7 +24,7 @@ const OldSelection = ({ navigation,route }) => {
   const [fontsLoaded, setFontsLoaded] = useState(false);
 
   const loadFonts = async () => {
-    await Font.loadAsync({ 
+    await Font.loadAsync({
       'PlaypenSans': require('../assets/fonts/Playpen_Sans/PlaypenSans-VariableFont_wght.ttf'), // Assurez-vous que le chemin est correct
       'Poppins-Bold': require('../assets/fonts/SofadiOne-Regular.ttf'), // Assurez-vous que le chemin est correct
     });
@@ -35,39 +35,17 @@ const OldSelection = ({ navigation,route }) => {
     loadFonts();
   }, []);
   const onSubmitAge = async () => {
-    if (isAgeValid) {
-      setIsLoading(true);
-    }
+    if (!isAgeValid || isLoading) return;
+    setIsLoading(true);
 
     try {
       // Appel à l'API pour mettre à jour le profil
-      const response = await publicRequest.post(`update_profile/${userId1.id}`, {
-        age:age,
-        sex:userId1.selectedGender,
-        name: userId1.name,
-        terme_condition: userId1.terme_condition,
-        agree: userId1.agree
-      });
-      // console.warn('update',response);
-      
-      if (response.data.success) {
-        // Navigation vers l'écran suivant après la mise à jour
-        const userId = response.data.data;
-        console.warn('User regi', response.data);
-        navigation.navigate('WelcomeScreen',{userId});
-      } else {
-        console.error('Erreur de mise à jour du profil');
-      }
-    } catch (err) {
-      console.error('Erreur:', err);
+      const user = await updateProfile({ age: Number(age) });
+      continueOnboarding(navigation, user);
+    } catch {
+      Alert.alert('Unable to save', 'Please check your connection and try again.');
     } finally {
       setIsLoading(false);
-    }
-  };
-  const handleNextPress = () => {
-    if (isAgeValid) {
-      console.log('Age entered:', age);
-      navigation.navigate('Login'); // Remplacez avec votre écran suivant
     }
   };
 
@@ -86,7 +64,7 @@ const OldSelection = ({ navigation,route }) => {
       <TouchableOpacity
         style={[styles.nextButton, isAgeValid ? styles.activeButton : styles.inactiveButton]}
         onPress={onSubmitAge}
-        disabled={!isAgeValid}
+        disabled={!isAgeValid || isLoading}
       >
         <Text style={styles.nextButtonText}>Next</Text>
       </TouchableOpacity>

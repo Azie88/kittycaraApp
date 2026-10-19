@@ -5,19 +5,21 @@ import {
   TextInput,
   TouchableOpacity,
   ActivityIndicator,
+  Alert,
   StyleSheet,
   ScrollView,
   Dimensions,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Font from 'expo-font';
-import {publicRequest, url} from '../RequestMethods';
+import { signUp } from '../backend';
+import { continueOnboarding } from '../onboarding';
 
 const Register = ({ navigation }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [password, setPassword] = useState('');
   const [passwordConfirm, setPasswordConfirm] = useState('');
-  const [name, setName] = useState(''); // email or phone
+  const [name, setName] = useState(''); // email address
   const [showPassword, setShowPassword] = useState(false);
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false);
   const [error, setError] = useState('');
@@ -27,7 +29,7 @@ const Register = ({ navigation }) => {
   };
 
   const loadFonts = async () => {
-    await Font.loadAsync({ 
+    await Font.loadAsync({
       'PlaypenSans': require('../assets/fonts/Playpen_Sans/PlaypenSans-VariableFont_wght.ttf'),
       'Poppins-Bold': require('../assets/fonts/SofadiOne-Regular.ttf'),
     });
@@ -42,6 +44,7 @@ const Register = ({ navigation }) => {
   };
 
   const onSubmitFormHandler = async () => {
+    if (isLoading) return;
     setIsLoading(true);
 
     // Check for password match
@@ -51,9 +54,9 @@ const Register = ({ navigation }) => {
       return;
     }
 
-    // Check if email/phone and password are valid
+    // Check email and password before signup
     if (!name || password.length < 6) {
-      setError("Please enter a valid username and passcode of at least 6 characters.");
+      setError("Please enter a valid email and passcode of at least 6 characters.");
       setIsLoading(false);
       return;
     }
@@ -61,47 +64,15 @@ const Register = ({ navigation }) => {
     setError(''); // Reset error
 
     try {
-      // Call the register API
-      const response = await publicRequest.post('register', {
-        phone: name.includes('@') ? '' : name,
-        email: name.includes('@') ? name : '',
-        password: password
-      });
-      // console.warn('response',response);
-      
-      if (response.data.success) {
-        // Navigate to TermsScreen after successful registration
-        const userId = response.data.data.user.id;
-        navigation.navigate('TermsScreen', { userId });
-      } else {
-        // Check if there is an error related to the email
-        if (response.data.error) {
-          let errorMessage = '';
-      
-          // Vérifier les erreurs pour l'email
-          if (response.data.error.email) {
-              errorMessage += response.data.error.email[0] + ' '; // Récupère le premier message d'erreur pour l'email
-          }
-      
-          // Vérifier les erreurs pour le téléphone
-          if (response.data.error.phone) {
-              errorMessage += response.data.error.phone[0] + ' '; // Récupère le premier message d'erreur pour le téléphone
-          }
-      
-          // Si des messages d'erreur ont été accumulés, les définir
-          if (errorMessage) {
-              setError(errorMessage.trim()); // Met à jour l'état avec les messages d'erreur concaténés
-          }
+      const user = await signUp(name, password);
+      if (!user) {
+        Alert.alert('Check your email', 'If signup is available for this address, you will receive an email. Verify your address, then return here and log in.');
+        navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+        return;
       }
-       else {
-          // console.warn('res error',response.data.error);
-          setError(response.data.error);
-          // setError('Registration failed.');
-        }
-      }
+      continueOnboarding(navigation, user);
     } catch (err) {
-      console.error('error', err);
-      setError("An error occurred. Please try again.");
+      setError(err.message || 'Unable to sign up. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -111,14 +82,15 @@ const Register = ({ navigation }) => {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Sign up</Text>
       <Text style={styles.description}>
-        Sign up with a username and passcode
+        Sign up with your email and passcode
       </Text>
       <View style={styles.form}>
-        <Text style={styles.registerText}>Username</Text>
+        <Text style={styles.registerText}>Email</Text>
         <TextInput
           style={styles.input}
-          placeholder="Type email or phone"
-          autoCompleteType="name"
+          placeholder="Email address"
+          keyboardType="email-address"
+          autoComplete="email"
           value={name}
           onChangeText={setName}
           autoCapitalize="none"

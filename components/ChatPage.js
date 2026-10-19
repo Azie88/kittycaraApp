@@ -3,15 +3,15 @@ import { StyleSheet, Text, View, TouchableOpacity, TextInput, FlatList, Image } 
 import * as Font from 'expo-font';
 import axios from 'axios';
 import { ActivityIndicator } from 'react-native-paper';
-import { huggingface_url, publicRequest } from '../RequestMethods';
+import { huggingface_url } from '../RequestMethods';
 
 const ChatPage = ({navigation,route}) => {
   const {userId} =route.params
   const [fontsLoaded, setFontsLoaded] = useState(false);
-  
- 
-  
-  
+
+
+
+
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [displayedMessage, setDisplayedMessage] = useState('');
@@ -19,7 +19,7 @@ const ChatPage = ({navigation,route}) => {
   const [messages, setMessages] = useState([]);
 
   const loadFonts = async () => {
-    await Font.loadAsync({ 
+    await Font.loadAsync({
       'PlaypenSans': require('../assets/fonts/Playpen_Sans/PlaypenSans-VariableFont_wght.ttf'),
       'Poppins-Bold': require('../assets/fonts/SofadiOne-Regular.ttf'),
     });
@@ -36,7 +36,7 @@ const ChatPage = ({navigation,route}) => {
 
 
   const handleSendMessage = async () => {
-    if (newMessage.trim() === '') return;
+    if (loading || newMessage.trim() === '') return;
     setLoading(true);
 
     const userMessage = { id: Date.now(), type: 'out', message: newMessage };
@@ -48,6 +48,7 @@ const ChatPage = ({navigation,route}) => {
         message: newMessage,
       });
 
+      if (typeof response.data.response !== 'string' || !response.data.response.trim()) throw new Error('Invalid response');
       const apiResponse = response.data.response;  // Get the response from the API
       const botMessage = { id: Date.now() + 1, type: 'in', message: apiResponse };
       // animateBotResponse(apiResponse);
@@ -55,7 +56,6 @@ const ChatPage = ({navigation,route}) => {
       // Add the bot's response to the messages list
       setMessages((prevMessages) => [...prevMessages, botMessage]);
     } catch (error) {
-      console.error('Error sending message:', error);
       const errorMessage = { id: Date.now() + 1, type: 'in', message: 'Sorry, something went wrong.' };
       setMessages((prevMessages) => [...prevMessages, errorMessage]);
     }
@@ -85,8 +85,7 @@ const ChatPage = ({navigation,route}) => {
   const renderItem = ({ item}) => {
     const inMessage = item.type === 'in';
     const itemStyle = inMessage ? styles.itemIn : styles.itemOut;
-    console.log(item.message);
-    
+
 
     return (
       <View style={[styles.item, itemStyle]}>
@@ -145,7 +144,7 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingHorizontal: 17,
-    
+
   },
   footer: {
     flexDirection: 'row',

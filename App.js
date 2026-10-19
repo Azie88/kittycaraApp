@@ -1,7 +1,6 @@
 import 'react-native-gesture-handler';
-import { StatusBar } from 'expo-status-bar';
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View, ActivityIndicator } from 'react-native';
 import Home from './components/Home'
 import { NavigationContainer } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -15,72 +14,48 @@ import * as Font from 'expo-font';
 import GenderSelection from './components/GenderSelection';
 import OldSelection from './components/OldSelection';
 import WelcomeScreen from './components/WelcomeScreen';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { publicRequest } from './RequestMethods';
+import { restoreSession } from './session';
+import { startSessionRefresh } from './lib/supabase';
 import NameSelection from './components/NameSelection';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
-  const [fontsLoaded, setFontsLoaded] = useState(false);
-  const [initialRoute, setInitialRoute] = useState('Home'); // Set default initial route
-  let token = AsyncStorage.getItem('Token');
-
-  console.log('token',token);
-  
-  const loadFonts = async () => {
-    await Font.loadAsync({
-      'PlaypenSans': require('./assets/fonts/Playpen_Sans/PlaypenSans-VariableFont_wght.ttf'), // Assurez-vous que le chemin est correct
-      'Poppins-Bold': require('./assets/fonts/SofadiOne-Regular.ttf'), // Assurez-vous que le chemin est correct
-    });
-    setFontsLoaded(true);
-  };
-  const checkUserStatus = async () => {
-    try {
-      const token = await AsyncStorage.getItem('token');
-      if (!token) {
-        // No token found, navigate to Login
-        setInitialRoute('Home');
-        return;
-      }
-
-      // If token exists, fetch user data
-      const response = await publicRequest.get('get_user', {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      const user = response.data.data;
-      if (!user.terme_condition) {
-        setInitialRoute('TermsScreen', { userId: user.id });
-      }else if(!user.agree){
-        setInitialRoute('TermsScreen', { userId: user.id });
-      } else if (!user.age) {
-        setInitialRoute('OldSelection', { userId: user });
-      } else if (!user.sex) {
-        setInitialRoute('GenderSelection', { userId: user });
-      } else if (!user.name) {
-        setInitialRoute('NameSelection', { userId: user });
-      }else{
-        setInitialRoute('WelcomeScreen', { userId: user });
-
-      } 
-    } catch (error) {
-      console.error('Error fetching user data', error);
-      setInitialRoute('Login'); // On error, navigate to Login
-    }
-  };
+  const [ready, setReady] = useState(false);
+  const [initialRoute, setInitialRoute] = useState({ name: 'Home' });
+  const [startupError, setStartupError] = useState(false);
 
   useEffect(() => {
-    loadFonts();
-    checkUserStatus();
+    let active = true;
+    let stopRefresh = () => {};
+    async function initialize() {
+      try {
+        stopRefresh = startSessionRefresh();
+        const [, destination] = await Promise.all([
+          Font.loadAsync({
+            PlaypenSans: require('./assets/fonts/Playpen_Sans/PlaypenSans-VariableFont_wght.ttf'),
+            'Poppins-Bold': require('./assets/fonts/SofadiOne-Regular.ttf'),
+          }),
+          restoreSession(),
+        ]);
+        if (active) setInitialRoute(destination);
+      } catch (error) {
+        if (active) setStartupError(error.message || 'Unable to load the app.');
+      } finally {
+        if (active) setReady(true);
+      }
+    }
+    initialize();
+    return () => { active = false; stopRefresh(); };
   }, []);
+
+  if (!ready) return <View style={styles.container}><ActivityIndicator /></View>;
+  if (startupError) return <View style={styles.container}><Text>{startupError}</Text></View>;
   return (
     // <View style={styles.container}>
       <NavigationContainer>
         <Stack.Navigator
-          initialRouteName={initialRoute}
+          initialRouteName={initialRoute.name}
           screenOptions={{
             headerStyle: {
               backgroundColor: '#353b8f',
@@ -90,45 +65,40 @@ export default function App() {
             headerTitleAlign: 'center',
           }}
         >
-          <Stack.Screen 
+          <Stack.Screen
            options={{ title: '', animation: 'slide_from_bottom' }}
-          name="Home" component={Home} />
-          <Stack.Screen 
+          name="Home" initialParams={initialRoute.name === "Home" ? initialRoute.params : undefined} component={Home} />
+          <Stack.Screen
            options={{ title: '', animation: 'slide_from_bottom' }}
-          name="Login" component={Login}  />
-           <Stack.Screen 
+          name="Login" initialParams={initialRoute.name === "Login" ? initialRoute.params : undefined} component={Login}  />
+           <Stack.Screen
            options={{ title: '', animation: 'slide_from_bottom' }}
-          name="Register" component={Register}  />
-          <Stack.Screen 
+          name="Register" initialParams={initialRoute.name === "Register" ? initialRoute.params : undefined} component={Register}  />
+          <Stack.Screen
            options={{ title: 'Information', animation: 'slide_from_bottom' }}
-          name="Info" component={Info} />
-            <Stack.Screen 
+          name="Info" initialParams={initialRoute.name === "Info" ? initialRoute.params : undefined} component={Info} />
+            <Stack.Screen
            options={{ title: '', animation: 'slide_from_bottom' }}
-          name="ChatPage" component={ChatPage} />
+          name="ChatPage" initialParams={initialRoute.name === "ChatPage" ? initialRoute.params : undefined} component={ChatPage} />
           <Stack.Screen
             options={{ title: 'Terms ', animation: 'slide_from_bottom' }}
-            name="TermsScreen"
-            component={TermsScreen}
+            name="TermsScreen" initialParams={initialRoute.name === "TermsScreen" ? initialRoute.params : undefined} component={TermsScreen}
           />
           <Stack.Screen
             options={{ title: '', animation: 'slide_from_bottom' }}
-            name="GenderSelection"
-            component={GenderSelection}
+            name="GenderSelection" initialParams={initialRoute.name === "GenderSelection" ? initialRoute.params : undefined} component={GenderSelection}
           />
                <Stack.Screen
             options={{ title: '', animation: 'slide_from_bottom' }}
-            name="OldSelection"
-            component={OldSelection}
+            name="OldSelection" initialParams={initialRoute.name === "OldSelection" ? initialRoute.params : undefined} component={OldSelection}
           />
            <Stack.Screen
             options={{ title: '', animation: 'slide_from_bottom' }}
-            name="WelcomeScreen"
-            component={WelcomeScreen}
+            name="WelcomeScreen" initialParams={initialRoute.name === "WelcomeScreen" ? initialRoute.params : undefined} component={WelcomeScreen}
           />
            <Stack.Screen
             options={{ title: '', animation: 'slide_from_bottom' }}
-            name="NameSelection"
-            component={NameSelection}
+            name="NameSelection" initialParams={initialRoute.name === "NameSelection" ? initialRoute.params : undefined} component={NameSelection}
           />
         </Stack.Navigator>
         <Toast/>

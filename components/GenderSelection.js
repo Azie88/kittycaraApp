@@ -1,7 +1,8 @@
 import React, { useState ,useRef,useEffect} from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import * as Font from 'expo-font';
-import { publicRequest } from '../RequestMethods';
+import { updateProfile } from '../backend';
+import { continueOnboarding } from '../onboarding';
 
 const GenderSelection = ({ navigation ,route}) => {
   const { userId } = route.params;
@@ -14,7 +15,7 @@ const GenderSelection = ({ navigation ,route}) => {
     setSelectedGender(gender);
   };
   const loadFonts = async () => {
-    await Font.loadAsync({ 
+    await Font.loadAsync({
       'PlaypenSans': require('../assets/fonts/Playpen_Sans/PlaypenSans-VariableFont_wght.ttf'), // Assurez-vous que le chemin est correct
       'Poppins-Bold': require('../assets/fonts/SofadiOne-Regular.ttf'), // Assurez-vous que le chemin est correct
     });
@@ -24,38 +25,17 @@ const GenderSelection = ({ navigation ,route}) => {
   useEffect(() => {
     loadFonts();
   }, []);
-  const handleNextPress = () => {
-    // Navigation logic or action when the "Next" button is pressed
-    if (selectedGender) {
-      // Par exemple, naviguer vers une autre page
-      console.log('Selected Gender:', selectedGender);
-      navigation.navigate('OldSelection'); // Si vous utilisez react-navigation
-    }
-  };
   const onSubmitGender = async () => {
+    if (!selectedGender || isLoading) return;
     setIsLoading(true);
-   
+
 
     try {
       // Appel à l'API pour mettre à jour le profil
-      const response = await publicRequest.post(`update_profile/${userId.id}`, {
-        sex:selectedGender,
-        name: userId.name,
-        terme_condition: userId.terme_condition,
-        agree: userId.agree
-      });
-      console.warn('update',response);
-      
-      if (response.data.success) {
-        // Navigation vers l'écran suivant après la mise à jour
-        const userId1 = response.data.data;
-        console.warn('User registered',userId1);
-        navigation.navigate('OldSelection',{userId1});
-      } else {
-        console.error('Erreur de mise à jour du profil');
-      }
-    } catch (err) {
-      console.error('Erreur:', err);
+      const user = await updateProfile({ sex: selectedGender });
+      continueOnboarding(navigation, user);
+    } catch {
+      Alert.alert('Unable to save', 'Please check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -86,7 +66,7 @@ const GenderSelection = ({ navigation ,route}) => {
       <TouchableOpacity
         style={[styles.nextButton, selectedGender ? styles.activeButton : styles.inactiveButton]}
         onPress={onSubmitGender}
-        disabled={!selectedGender} // Désactive le bouton si aucun sexe n'est sélectionné
+        disabled={!selectedGender || isLoading} // Désactive le bouton si aucun sexe n'est sélectionné
       >
         <Text style={styles.nextButtonText}>Next</Text>
       </TouchableOpacity>

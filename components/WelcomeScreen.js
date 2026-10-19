@@ -1,8 +1,8 @@
 import React, { useState, useRef,useEffect} from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
 import { useFonts } from 'expo-font';
 import * as Font from 'expo-font';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { clearSession } from '../session';
 
 const WelcomeScreen = ({ navigation,route }) => {
   // Charger les polices personnalisées si nécessaire
@@ -10,16 +10,19 @@ const WelcomeScreen = ({ navigation,route }) => {
   const [fontsLoaded, setFontsLoaded] = useState(false);
 
   const loadFonts = async () => {
-    await Font.loadAsync({ 
+    await Font.loadAsync({
       'PlaypenSans': require('../assets/fonts/Playpen_Sans/PlaypenSans-VariableFont_wght.ttf'), // Assurez-vous que le chemin est correct
       'Poppins-Bold': require('../assets/fonts/SofadiOne-Regular.ttf'), // Assurez-vous que le chemin est correct
     });
     setFontsLoaded(true);
-  }; 
+  };
   const handleLogout = async () => {
-    await AsyncStorage.removeItem('authToken');
-    await AsyncStorage.removeItem('userName');
-    navigation.navigate('Login'); // Navigate back to the login screen
+    try {
+      await clearSession();
+      navigation.reset({ index: 0, routes: [{ name: 'Login' }] });
+    } catch {
+      Alert.alert('Unable to log out', 'Please try again.');
+    }
   };
   useEffect(() => {
     loadFonts();
@@ -37,7 +40,7 @@ const WelcomeScreen = ({ navigation,route }) => {
         {/* Conteneur pour aligner le logo et le titre horizontalement */}
         <View style={styles.headerContainer}>
           {/* Image du logo Kittycara */}
-          <Image 
+          <Image
             source={require('../assets/cat.png')} // Remplacez par votre image du chat
             style={styles.logo}
           />
@@ -63,14 +66,14 @@ const WelcomeScreen = ({ navigation,route }) => {
             </View>
             </View>
         {/* Bouton Start Interview */}
-        <TouchableOpacity 
-          style={styles.button} 
+        <TouchableOpacity
+          style={styles.button}
           onPress={() => navigation.navigate('ChatPage',{userId} )}
         >
           <Text style={styles.buttonText}>start interview</Text>
         </TouchableOpacity>
       </View>
-    </View> 
+    </View>
   );
 };
 

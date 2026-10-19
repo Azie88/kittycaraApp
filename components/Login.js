@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Font from 'expo-font';
-import { publicRequest } from '../RequestMethods';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { signIn } from '../backend';
+import { continueOnboarding } from '../onboarding';
 
 const Login = ({ navigation }) => {
   const [fontsLoaded, setFontsLoaded] = useState(false);
@@ -30,61 +30,25 @@ const Login = ({ navigation }) => {
     });
     setFontsLoaded(true);
   };
- 
+
   useEffect(() => {
     loadFonts();
   }, []);
   // Fonction de gestion du login
   const handleLogin = async () => {
+    if (loading) return;
+    setError('');
     if (!emailOrPhone || !password) {
-      setError('Please enter both email/phone and password.');
+      setError('Please enter both email and password.');
       return;
     }
 
     try {
       setLoading(true);
-      const response = await publicRequest.post('login', {
-        phone: emailOrPhone.includes('@') ? '' : emailOrPhone,
-        email: emailOrPhone.includes('@') ? emailOrPhone : '',
-        password: password
-      });
-        console.warn('log',response.data.data)
-      // Vérification de la réponse de l'API
-      if (response.data.success) {
-        // Redirection après succès
-        setSuccess('Success Logged in successfully!');
-        const user = response.data.data;
-        // Stocker le token dans AsyncStorage
-        await AsyncStorage.setItem('authToken', response.data.token);
-
-        // Stocker les autres informations de l'utilisateur
-        await AsyncStorage.setItem('userName', user.name || '');
-        await AsyncStorage.setItem('userAge', user.age ? user.age.toString() : '');
-        await AsyncStorage.setItem('userSex', user.sex || '');
-        await AsyncStorage.setItem('userEmail', user.email || '');
-        await AsyncStorage.setItem('userPhone', user.phone || '');
-        if (!user.terme_condition) {
-          navigation.navigate('TermsScreen', { userId: user.id });
-        }else if(!user.agree){
-          navigation.navigate('TermsScreen', { userId: user.id });
-        } else if (!user.age) {
-          navigation.navigate('OldSelection', { userId: user });
-        } else if (!user.sex) {
-          navigation.navigate('GenderSelection', { userId: user });
-        } else if (!user.name) {
-          navigation.navigate('NameSelection', { userId: user });
-        }else{
-          navigation.navigate('WelcomeScreen', { userId: user });
-
-        } 
-      } else {
-        console.log('res error',response);
-        
-        setError(response.data.message || 'Login failed. Please try again.');
-      }
+      const user = await signIn(emailOrPhone, password);
+      continueOnboarding(navigation, user);
     } catch (err) {
-      console.log('Error',err)
-      setError('An error occurred. Please check your network connection and try again.');
+      setError(err.message || 'Unable to log in. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -110,7 +74,8 @@ const Login = ({ navigation }) => {
       <View style={styles.form}>
         <TextInput
           style={styles.input}
-          placeholder="Email or Phone"
+          placeholder="Email"
+          keyboardType="email-address"
           selectionColor="#a9a9a9"
           autoCapitalize="none"
           underlineColorAndroid="transparent"
@@ -143,7 +108,7 @@ const Login = ({ navigation }) => {
           <Text style={styles.buttonText}>{loading ? 'Logging in...' : 'Log in'}</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity onPress={() => navigation.navigate('Reset')}>
+        <TouchableOpacity onPress={() => Alert.alert('Passcode recovery', 'Passcode recovery is not available yet.')}>
           <Text style={styles.forgotText}>Forgot passcode?</Text>
         </TouchableOpacity>
 
@@ -159,7 +124,7 @@ const Login = ({ navigation }) => {
 };
 
 
-   
+
 
 const { width, height } = Dimensions.get('window');
 const styles = StyleSheet.create({
@@ -215,7 +180,7 @@ const styles = StyleSheet.create({
     height: 100, // Set the desired height of the logo
     marginBottom: 2, // Adds space between the logo and the title
   },
-  
+
   eyeIcon: {
     position: 'absolute',
     top: 15,

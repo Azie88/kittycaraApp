@@ -1,12 +1,12 @@
 import React, { useState,useRef,useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import * as Font from 'expo-font';
-import { publicRequest } from '../RequestMethods';
+import { updateProfile } from '../backend';
+import { continueOnboarding } from '../onboarding';
 
 const NameSelection = ({ navigation,route }) => {
-  const { userId1 } = route.params;
-  console.log('user',userId1);
-  
+  const { userId } = route.params;
+
   const [name, setname] = useState('');
   const [isNameValid, setIsNameValid] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -16,16 +16,10 @@ const NameSelection = ({ navigation,route }) => {
     setIsNameValid(value.trim().length > 0); // Validation: Vérifie si le nom n'est pas vide
   };
 
-  const handleNextPress = () => {
-    if (isNameValid) {
-      console.log('Name entered:', name);
-      navigation.navigate('GenderSelection'); // Remplacez avec votre écran suivant
-    }
-  };
   const [fontsLoaded, setFontsLoaded] = useState(false);
 
   const loadFonts = async () => {
-    await Font.loadAsync({ 
+    await Font.loadAsync({
       'PlaypenSans': require('../assets/fonts/Playpen_Sans/PlaypenSans-VariableFont_wght.ttf'), // Assurez-vous que le chemin est correct
       'Poppins-Bold': require('../assets/fonts/SofadiOne-Regular.ttf'), // Assurez-vous que le chemin est correct
     });
@@ -36,29 +30,15 @@ const NameSelection = ({ navigation,route }) => {
     loadFonts();
   }, []);
   const onSubmitName = async () => {
-    if (isNameValid) {
-      setIsLoading(true);
-    }
+    if (!isNameValid || isLoading) return;
+    setIsLoading(true);
 
     try {
       // Appel à l'API pour mettre à jour le profil
-      const response = await publicRequest.post(`update_profile/${userId1.id}`, {
-        name: name,
-        terme_condition: userId1.terme_condition,
-        agree: userId1.agree
-      });
-      console.warn('update',response);
-      
-      if (response.data.success) {
-        // Navigation vers l'écran suivant après la mise à jour
-        const userId = response.data.data;
-        console.warn('User registered successfully', response.data);
-        navigation.navigate('GenderSelection',{userId});
-      } else {
-        console.error('Erreur de mise à jour du profil');
-      }
-    } catch (err) {
-      console.error('Erreur:', err.response);
+      const user = await updateProfile({ name: name.trim() });
+      continueOnboarding(navigation, user);
+    } catch {
+      Alert.alert('Unable to save', 'Please check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -79,7 +59,7 @@ const NameSelection = ({ navigation,route }) => {
       <TouchableOpacity
         style={[styles.nextButton, isNameValid ? styles.activeButton : styles.inactiveButton]}
         onPress={onSubmitName}
-        disabled={!isNameValid}
+        disabled={!isNameValid || isLoading}
       >
         <Text style={styles.nextButtonText}>Next</Text>
       </TouchableOpacity>

@@ -1,20 +1,21 @@
 import React, { useState,useRef,useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Linking, Alert } from 'react-native';
 import { Checkbox } from 'react-native-paper';
 // import * as Linking from 'expo-linking';
 import * as Font from 'expo-font';
-import { publicRequest } from '../RequestMethods';
+import { updateProfile } from '../backend';
+import { continueOnboarding } from '../onboarding';
 
 const TermsScreen = ({ navigation, route })  => {
   const { userId } = route.params;
-  
+
   const [checkedTerms, setCheckedTerms] = useState(false);
   const [checkedPrivacy, setCheckedPrivacy] = useState(false);
   const [fontsLoaded, setFontsLoaded] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
   const loadFonts = async () => {
-    await Font.loadAsync({ 
+    await Font.loadAsync({
       'PlaypenSans': require('../assets/fonts/Playpen_Sans/PlaypenSans-VariableFont_wght.ttf'), // Assurez-vous que le chemin est correct
       'Poppins-Bold': require('../assets/fonts/SofadiOne-Regular.ttf'), // Assurez-vous que le chemin est correct
     });
@@ -24,26 +25,15 @@ const TermsScreen = ({ navigation, route })  => {
     loadFonts();
   }, []);
   const onSubmitTerms = async () => {
+    if (!checkedTerms || !checkedPrivacy || isLoading) return;
     setIsLoading(true);
 
     try {
       // Appel à l'API pour mettre à jour le profil
-      const response = await publicRequest.post(`update_profile/${userId}`, {
-        terme_condition: checkedTerms,
-        agree: checkedPrivacy
-      });
-      console.warn('update',response);
-      
-      if (response.data.success) {
-        // Navigation vers l'écran suivant après la mise à jour
-        const userId1 = response.data.data;
-        // console.warn('User registered successfully', response.data);
-        navigation.navigate('NameSelection',{userId1});
-      } else {
-        console.error('Erreur de mise à jour du profil');
-      }
-    } catch (err) {
-      console.error('Erreur:', err);
+      const user = await updateProfile({ terme_condition: checkedTerms, agree: checkedPrivacy });
+      continueOnboarding(navigation, user);
+    } catch {
+      Alert.alert('Unable to save', 'Please check your connection and try again.');
     } finally {
       setIsLoading(false);
     }
@@ -51,10 +41,10 @@ const TermsScreen = ({ navigation, route })  => {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Confirm you're ready</Text>
-      
+
       <Text style={styles.instructions}>
-        Please accept the <Text style={styles.link} onPress={() => navigation.navigate('https://kittycara.kansafrica.com/terme')}>Terms of Service</Text>{' '}
-        and <Text style={styles.link} onPress={() => navigation.navigate('https://kittycara.kansafrica.com/agree')}>Privacy Policy</Text>. Please note:
+        Please accept the <Text style={styles.link} onPress={() => Linking.openURL('https://kittycara.kansafrica.com/terme').catch(() => Alert.alert('Unable to open link'))}>Terms of Service</Text>{' '}
+        and <Text style={styles.link} onPress={() => Linking.openURL('https://kittycara.kansafrica.com/agree').catch(() => Alert.alert('Unable to open link'))}>Privacy Policy</Text>. Please note:
       </Text>
 
       <Text style={styles.bullet}>
@@ -84,7 +74,7 @@ const TermsScreen = ({ navigation, route })  => {
         />
         <Text style={styles.checkboxLabel}>I agree for my health information to be used for the interview.</Text>
       </View>
-      <TouchableOpacity style={styles.nextButton} onPress={onSubmitTerms} disabled={isLoading}>
+      <TouchableOpacity style={styles.nextButton} onPress={onSubmitTerms} disabled={isLoading || !checkedTerms || !checkedPrivacy}>
         <Text style={styles.nextButtonText}>Next</Text>
       </TouchableOpacity>
     </ScrollView>
@@ -154,7 +144,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Poppins-Bold', // Utiliser la même police personnalisée
     // fontWeight: 'bold',
   },
-  
+
 });
 
 export default TermsScreen;

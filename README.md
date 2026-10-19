@@ -42,9 +42,9 @@ To run this project, you need to have the following installed:
 Node.js
 npm or yarn
 Expo CLI
-An OpenAI API Key (if you haven't already, sign up for access at OpenAI)
+A configured Supabase project (see SUPABASE_SETUP.md)
 Basic knowledge of JavaScript and React Native.
-Familiarity with Python and setting up FastAPI.
+The AI service is hosted separately; its backend source is not included.
 Contributions:
 Contributions are encouraged! Whether it's bug fixes, new features, or improvements, feel free to open a pull request.
 
@@ -55,7 +55,7 @@ Contributions are encouraged! Whether it's bug fixes, new features, or improveme
         cd kittycaraApp
 - Create .env :
 
-        OPENAI_API_KEY=your_openai_api_key
+        # Copy .env.example and fill in Supabase values; see SUPABASE_SETUP.md
 
 
 - start : 
@@ -68,3 +68,12 @@ Once the app is running, users can interact with Kittycara, the virtual pet cat,
 
 Contributing
 If you wish to contribute, please submit a pull request or create an issue to discuss the changes you'd like to make.
+
+
+## Backend and validation
+
+The app now uses Supabase Auth and Postgres for accounts, sessions, and onboarding profiles. Follow [SUPABASE_SETUP.md](SUPABASE_SETUP.md) to create a project, run the database setup, and configure `.env`. Only email/password signup is enabled in this migration. Existing account data is not imported.
+
+AI symptom analysis still uses the separately hosted Hugging Face `/analyze` service. No OpenAI API key is needed in the mobile client. Chat history is currently kept only in memory.
+
+Run `npm test` for onboarding, auth, profile, and database isolation checks. Run `npx expo export --platform android` to verify the mobile bundle. Hosted Supabase and device checks require your own configured project.
